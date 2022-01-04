@@ -1,0 +1,11 @@
+Park - Location - Campsites
+# Place the campsites numbers in order of priority as they will be selected in order
+Yosemite National Park - North Pines - 101, 111, 303, 502
+Meadow Group - 002, 001
+Coulter Group - 001
+
+Details:
+# Fill out all potential details for the trip here that would be filled out on the reservation screen
+dates - 4/4/2022,4/10/2022
+site_type - Standard
+allowed_equipment -

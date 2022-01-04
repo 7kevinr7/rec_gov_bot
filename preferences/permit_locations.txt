@@ -1,0 +1,11 @@
+Location - Entry Point ID or Name:
+Mt. Whitney - JM35, JM34.5MWZ
+Sierra National Forest - Chiquito/Quartz, Mammoth, A35
+Sequoia and Kings Canyon - Alta, Eagle Lake
+Inyo National Forest - JM14, Cottonwood Pass, AA14
+
+Details:
+# Fill out all potential details for the trip here that would be filled out on the reservation screen
+dates - 1/4/2022
+permit_type - overnight
+commercial_trip - No

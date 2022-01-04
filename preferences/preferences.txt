@@ -1,0 +1,9 @@
+login, False
+credentials, preferences/credentials.txt
+permit_locations, preferences/permit_locations.txt
+camping_locations, preferences/camping_locations.txt
+wait_duration, 1
+long_delay, 20
+guests, 3
+url, https://www.recreation.gov/
+num_refreshes, 3
