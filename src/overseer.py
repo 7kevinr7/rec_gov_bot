@@ -11,10 +11,10 @@ from selenium import webdriver
 from os import path
 from os import getcwd
 
-from RecGovBot.recgov import RecGov
-from RecGovBot.camp_recgov import CampRecGov
-from RecGovBot.permit_recgov import PermitRecGov
-import RecGovBot.preferences_handler as ph
+from src.recgov import RecGov
+from src.camp_recgov import CampRecGov
+from src.permit_recgov import PermitRecGov
+import src.preferences_handler as ph
 
 
 class Overseer:

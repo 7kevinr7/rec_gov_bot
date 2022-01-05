@@ -9,8 +9,8 @@ from os import path
 from os import getcwd
 from sys import exit
 
-import RecGovBot.location_handler as lh
-import RecGovBot.credential_handler as ch
+import src.location_handler as lh
+import src.credential_handler as ch
 
 
 class PreferencesHandler:

@@ -7,7 +7,7 @@ Created on Fri Aug  6 14:56:52 2021
 
 from os import path
 from os import getcwd
-import RecGovBot.date_handler as dh
+import src.date_handler as dh
 
 
 class NoLocationsFileException(Exception):
