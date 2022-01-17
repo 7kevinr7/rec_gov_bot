@@ -8,7 +8,7 @@ Created on Fri Aug  6 14:56:52 2021
 from traceback import print_exc
 from time import sleep
 from re import sub
-from datetime import date
+from datetime import datetime, date, time
 from datetime import timedelta
 from selenium import webdriver
 from selenium.webdriver.support.ui import WebDriverWait
@@ -35,7 +35,6 @@ class CampRecGov(RecGov):
         :param camping_location: string location for this browser
         """
         super(CampRecGov, self).__init__(driver, preferences, camping_location)
-        self._desired_sites = preferences.camping_locations[camping_location]
         self._camping_details = preferences.camping_details
 
     def execute(self):
@@ -52,7 +51,7 @@ class CampRecGov(RecGov):
             self._scheduling_details()
             self._poll()
             # unreachable unless successfully booking
-            # detaches browser on successful selection of permits
+            # detaches browser on successful selection of campsite
             return True
         except EndOfTriesException as e:
             print(e)
@@ -67,14 +66,39 @@ class CampRecGov(RecGov):
         :return: None
         """
         retries = 0
-        while retries < self._num_refreshes:
-            #self._refresh_availability_table()
-            if self._select_campsite(retries + 1):
-                return True
-            retries += 1
+
+        start_datetime, end_datetime, start_date, end_date, campsite = self._select_campsite()
+        super(CampRecGov, self).wait()
+        result = 0
+
+        if self._time_end:
+            current_time = datetime.now().time()
+            while current_time < self._time_end:
+                self._refresh_availability_table()
+                if result == 2:
+                    start_datetime, end_datetime, start_date, end_date, campsite = self._select_campsite()
+                result = self._handle_availability(start_datetime, end_datetime, start_date, end_date, campsite, retries + 1)
+                if result == 1:
+                    return True
+                retries += 1
+                current_time = datetime.now().time()
+        else:
+            while retries < self._num_refreshes:
+                self._refresh_availability_table()
+                if result == 2:
+                    start_datetime, end_datetime, start_date, end_date, campsite = self._select_campsite()
+                result = self._handle_availability(start_datetime, end_datetime, start_date, end_date, campsite, retries + 1)
+                if result == 1:
+                    return True
+                retries += 1
+
+        except_str = RecGov.format_location_string(self._location) + ": driver stopping, tried " + \
+                     str(retries) + " times"
+        if self._time_end:
+            except_str += ", reached timeout " + str(self._time_end)
 
         # Unable to successfully book permits
-        raise EndOfTriesException("<Camping> " + RecGov.format_location_string(self._location) + ": driver stopping")
+        raise EndOfTriesException(except_str)
 
     def _navigate_camping_heading(self):
         """
@@ -174,6 +198,7 @@ class CampRecGov(RecGov):
         _select_dates - selects the desired dates
         :return: None
         """
+
         if self._camping_details['dates'] is not None:
             super(CampRecGov, self).select_date(self._camping_details['dates'][0], "campground-start-date-calendar")
             super(CampRecGov, self).select_date(self._camping_details['dates'][1], "campground-end-date-calendar")
@@ -206,7 +231,7 @@ class CampRecGov(RecGov):
             refresh_button.click()
 
         except Exception as e:
-            print(RecGov.format_location_string(self._location) + ": CampRecGov._refresh_availability_table() failed: " + self._url)
+            print(RecGov.format_location_string(self._location) + ": CampRecGov._refresh_availability_table() failed")
             print(print_exc())
             raise e
 
@@ -230,6 +255,7 @@ class CampRecGov(RecGov):
         except Exception as e:
             print(RecGov.format_location_string(self._location) + ": CampRecGov._book_now() failed")
             print(print_exc())
+            raise e
 
         # Any issues, etc. continue polling the availability page
         return False
@@ -244,7 +270,75 @@ class CampRecGov(RecGov):
             clear_selection = RecGov.find_parent_with_tag(clear_selection_elements[0], "button")
             clear_selection.click()
 
-    def _select_campsite(self, iteration=0):
+    def _handle_availability(self, start_datetime, end_datetime, start_date, end_date, campsite, iteration):
+        try:
+            self._clear_selection()
+            available_date_elements = self._driver.find_elements_by_class_name("available")
+            if len(available_date_elements) > 0:
+                available_date_buttons = list()
+                for index in range(len(available_date_elements)):
+                    available_date_buttons.append(
+                        available_date_elements[index].find_element_by_class_name("rec-availability-date"))
+
+                if len(available_date_buttons) > 0:
+                    start_date_button = available_date_buttons[0]
+                    end_date_button = available_date_buttons[0]
+
+                    for index in range(len(available_date_buttons)):
+                        if available_date_buttons[index].get_attribute("aria-label") is not None:
+                            aria_label = available_date_buttons[index].get_attribute("aria-label").lower()
+                            if start_date in aria_label:
+                                start_date_button = available_date_buttons[index]
+                            elif end_date in aria_label:
+                                end_date_button = available_date_buttons[index]
+                                break
+
+                    if start_date_button != end_date_button:
+                        ActionChains(self._driver).move_to_element(start_date_button).click(
+                            start_date_button).perform()
+                        ActionChains(self._driver).move_to_element(end_date_button).click(
+                            end_date_button).perform()
+
+                        # verify that the correct dates are selected
+                        start_date_verification = self._driver.find_elements_by_class_name("start")
+                        end_date_verification = self._driver.find_elements_by_class_name("end")
+                        if len(start_date_verification) == 0 or len(end_date_verification) == 0:
+                            return 1
+
+                        start_date_verification = start_date_verification[0]
+                        end_date_verification = end_date_verification[0]
+                        start_date_verification_button = start_date_verification.find_elements_by_class_name(
+                            "rec-availability-date")
+                        end_date_verification_button = end_date_verification.find_elements_by_class_name(
+                            "rec-availability-date")
+                        if len(start_date_verification_button) == 0 or len(end_date_verification_button) == 0:
+                            return 1
+
+                        start_date_verification_button = start_date_verification_button[0]
+                        end_date_verification_button = end_date_verification_button[0]
+                        start_valid = False
+                        end_valid = False
+
+                        if start_date_verification_button.get_attribute("aria-label") is not None and \
+                                start_date in start_date_verification_button.get_attribute("aria-label").lower():
+                            start_valid = True
+
+                        if end_date_verification_button.get_attribute("aria-label") is not None and \
+                                end_date in end_date_verification_button.get_attribute("aria-label").lower():
+                            end_valid = True
+
+                        if start_valid and end_valid:
+                            dates = DateHandler.datetime_to_normal_text(start_datetime) + "-" + \
+                                    DateHandler.datetime_to_normal_text(end_datetime)
+
+                            return 1 if self._book_now(campsite, dates, iteration) else 0
+
+        except Exception as e:
+            print(RecGov.format_location_string(self._location) + ": CampRecGov._handle_availability() failed")
+            print(print_exc())
+            return 2
+
+    def _select_campsite(self):
         """
         _select_campsite - inputs the given site number into the search bar
         :return: None
@@ -259,72 +353,12 @@ class CampRecGov(RecGov):
                 end_datetime = self._camping_details['dates'][1]
                 start_date = DateHandler.datetime_to_short_text(start_datetime).lower()
                 end_date = DateHandler.datetime_to_short_text(end_datetime).lower()
+                campsite = self._location.split(":")[2]
 
-                for campsite in self._desired_sites:
-                    self._clear_selection()
-                    site_search_element.send_keys(Keys.CONTROL + 'a')
-                    site_search_element.send_keys(campsite)
-                    #sleep(self._wait_duration)
+                site_search_element.send_keys(Keys.CONTROL + 'a')
+                site_search_element.send_keys(campsite)
 
-                    available_date_elements = self._driver.find_elements_by_class_name("available")
-                    if len(available_date_elements) > 0:
-                        available_date_buttons = list()
-                        for index in range(len(available_date_elements)):
-                            available_date_buttons.append(
-                                available_date_elements[index].find_element_by_class_name("rec-availability-date"))
-
-                        if len(available_date_buttons) > 0:
-                            start_date_button = available_date_buttons[0]
-                            end_date_button = available_date_buttons[0]
-
-                            for index in range(len(available_date_buttons)):
-                                if available_date_buttons[index].get_attribute("aria-label") is not None:
-                                    aria_label = available_date_buttons[index].get_attribute("aria-label").lower()
-                                    if start_date in aria_label:
-                                        start_date_button = available_date_buttons[index]
-                                    elif end_date in aria_label:
-                                        end_date_button = available_date_buttons[index]
-                                        break
-
-                            if start_date_button != end_date_button:
-                                ActionChains(self._driver).move_to_element(start_date_button).click(
-                                    start_date_button).perform()
-                                ActionChains(self._driver).move_to_element(end_date_button).click(
-                                    end_date_button).perform()
-
-                                # verify that the correct dates are selected
-                                start_date_verification = self._driver.find_elements_by_class_name("start")
-                                end_date_verification = self._driver.find_elements_by_class_name("end")
-                                if len(start_date_verification) == 0 or len(end_date_verification) == 0:
-                                    continue
-
-                                start_date_verification = start_date_verification[0]
-                                end_date_verification = end_date_verification[0]
-                                start_date_verification_button = start_date_verification.find_elements_by_class_name(
-                                    "rec-availability-date")
-                                end_date_verification_button = end_date_verification.find_elements_by_class_name(
-                                    "rec-availability-date")
-                                if len(start_date_verification_button) == 0 or len(end_date_verification_button) == 0:
-                                    continue
-
-                                start_date_verification_button = start_date_verification_button[0]
-                                end_date_verification_button = end_date_verification_button[0]
-                                start_valid = False
-                                end_valid = False
-
-                                if start_date_verification_button.get_attribute("aria-label") is not None and \
-                                        start_date in start_date_verification_button.get_attribute("aria-label").lower():
-                                    start_valid = True
-
-                                if end_date_verification_button.get_attribute("aria-label") is not None and \
-                                        end_date in end_date_verification_button.get_attribute("aria-label").lower():
-                                    end_valid = True
-
-                                if start_valid and end_valid:
-                                    dates = DateHandler.datetime_to_normal_text(start_datetime) + "-" + \
-                                            DateHandler.datetime_to_normal_text(end_datetime)
-
-                                    return self._book_now(campsite, dates, iteration)
+                return start_datetime, end_datetime, start_date, end_date, campsite
 
         except Exception as e:
             print(RecGov.format_location_string(self._location) + ": CampRecGov._select_campsite() failed")

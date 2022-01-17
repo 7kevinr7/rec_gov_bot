@@ -1,9 +1,12 @@
-login, False
+# Use the hashtag/pound to ignore certain lines
+login, True
 credentials, preferences/credentials.txt
-permit_locations, preferences/permit_locations.txt
+#permit_locations, preferences/permit_locations.txt
 camping_locations, preferences/camping_locations.txt
 wait_duration, 1
 long_delay, 20
 guests, 3
 url, https://www.recreation.gov/
-num_refreshes, 3
+# time_start takes precedence over num_refreshes
+num_refreshes, 2
+time_start, 16:21:30-16:21:45

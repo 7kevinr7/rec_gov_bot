@@ -38,13 +38,7 @@ class Overseer:
         """
         driver = None
         try:
-            location_type_str = ""
-            if "camp" in merged_location_type[1].lower():
-                location_type_str = "<Camping> "
-            elif "permit" in merged_location_type[1].lower():
-                location_type_str = "<Permits> "
-
-            print(location_type_str + RecGov.format_location_string(merged_location_type[0]) + ": driver starting")
+            print(RecGov.format_location_string(merged_location_type[0]) + ": driver starting")
             exec_path = path.join(getcwd(), 'chromedriver')
             driver = webdriver.Chrome(executable_path=exec_path,
                                       chrome_options=webdriver.ChromeOptions())

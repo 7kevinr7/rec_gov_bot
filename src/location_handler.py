@@ -43,11 +43,15 @@ class LocationHandler:
 
         with open(locations_path, "r") as locations_file:
             for line in locations_file:
+                line = line.strip()
+                if not line or line.startswith("#"):
+                    continue
+
                 if "detail" in line.strip().lower():
                     detail_input = True
                 elif detail_input:
                     details_data.append(line.strip())
-                elif "#" not in line.strip().lower() and line.strip() != "" and "location" not in line.lower():
+                elif line and "location" not in line.lower():
                     location_data.append(line.strip())
 
         if len(location_data) == 0:
@@ -55,10 +59,16 @@ class LocationHandler:
 
         self.details = dict() if detail_input else None
 
+        for detail in details_data:
+            detail_type = detail.split("-")[0].strip()
+            self.details[detail_type] = [detail_field.strip() for detail_field in
+                                         detail.split("-")[1].strip().split(",") if detail_field.strip() != ""]
+
         if "camp" in self.locations_type:
             for location in location_data:
                 split_line = location.split("-")
                 park, campground, sites = "", "", -1
+
                 if len(split_line) == 2:
                     campground = split_line[0].strip()
                     sites = [int(site.strip()) for site in split_line[1].split(",") if site.strip() != ""]
@@ -67,19 +77,16 @@ class LocationHandler:
                     campground = split_line[1].strip()
                     sites = [int(site.strip()) for site in split_line[2].split(",") if site.strip() != ""]
 
-                self.locations[park + ":" + campground] = sites
+                for site in sites:
+                    self.locations[park + ":" + campground + ":" + str(site).zfill(3)] = site
 
         elif "permit" in self.locations_type:
-            for entry in location_data:
-                location = entry.split("-")[0].strip()
-                entry_points = [entry_point.strip() for entry_point in entry.split("-")[1].strip().split(",")
-                                if entry_point.strip() != ""]
-                self.locations[location] = entry_points
+            for location in location_data:
+                park, entry_points = location.split("-")
+                entry_points = entry_points.split(",")
 
-        for detail in details_data:
-            detail_type = detail.split("-")[0].strip()
-            self.details[detail_type] = [detail_field.strip() for detail_field in
-                                         detail.split("-")[1].strip().split(",") if detail_field.strip() != ""]
+                for entry_point in entry_points:
+                    self.locations[park.strip() + ":" + entry_point.strip()] = entry_point.strip()
 
         if 'dates' in self.details:
             try:
@@ -91,6 +98,10 @@ class LocationHandler:
                     end_date = dh.DateHandler(self.details['dates'][1]).date
 
                 self.details['dates'] = [start_date, end_date]
+                output_str = "Searching for availabilities starting on " + \
+                             dh.DateHandler.datetime_to_normal_text(start_date)
+                if end_date is not None:
+                    output_str += " and ending on " + dh.DateHandler.datetime_to_normal_text(end_date)
 
             except Exception as e:
                 self.details['dates'] = None

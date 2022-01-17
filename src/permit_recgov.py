@@ -8,8 +8,9 @@ Created on Fri Aug  6 14:56:52 2021
 from traceback import print_exc
 from time import sleep
 from re import sub
-from datetime import date
+from datetime import date, datetime, time
 from datetime import timedelta
+from calendar import monthrange
 from selenium import webdriver
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as ec
@@ -39,7 +40,6 @@ class PermitRecGov(RecGov):
         :param permit_location: string location for this browser
         """
         super(PermitRecGov, self).__init__(driver, preferences, permit_location)
-        self._desired_entries = preferences.permit_locations[permit_location]
         self._permit_details = preferences.permit_details
 
     def execute(self):
@@ -52,6 +52,8 @@ class PermitRecGov(RecGov):
             super(PermitRecGov, self).log_into_account()
             self._navigate_permit_heading()
             self._load_permit_link()
+            self._driver.refresh()
+            self._scheduling_details()
             self._poll()
             # unreachable unless successfully booking
             # detaches browser on successful selection of permits
@@ -59,7 +61,7 @@ class PermitRecGov(RecGov):
         except EndOfTriesException as e:
             print(e)
         except CommercialTripException as e:
-            print(e + ", exiting")
+            print(e)
         except Exception:
             print(print_exc())
 
@@ -71,17 +73,35 @@ class PermitRecGov(RecGov):
         :return: None
         """
         retries = 0
-        while retries < self._num_refreshes:
-            # for each refresh:
-            # - refresh the webpage, reschedule permit details and restart checking for availabilities
-            self._driver.refresh()
-            self._scheduling_details()
-            if self._select_permit(retries + 1):
-                return True
-            retries += 1
+
+        entry_point = self._select_permit()
+        super(PermitRecGov, self).wait()
+        result = 0
+
+        if self._time_end:
+            current_time = datetime.now().time()
+            while current_time < self._time_end:
+                self._refresh_availability_table()
+                result = self._handle_availability(entry_point, retries + 1)
+                if result == 1:
+                    return True
+                retries += 1
+                current_time = datetime.now().time()
+        else:
+            while retries < self._num_refreshes:
+                self._refresh_availability_table()
+                result = self._handle_availability(entry_point, retries + 1)
+                if result == 1:
+                    return True
+                retries += 1
+
+        except_str = RecGov.format_location_string(self._location) + ": driver stopping, tried " + \
+                     str(retries) + " times"
+        if self._time_end:
+            except_str += ", reached timeout " + str(self._time_end)
 
         # Unable to successfully book permits
-        raise EndOfTriesException("<Permits> " + self._location + ": driver stopping")
+        raise EndOfTriesException(except_str)
 
     def _navigate_permit_heading(self):
         """
@@ -95,7 +115,7 @@ class PermitRecGov(RecGov):
         _get_permit_link - grabs the necessary link from the search page
         :return: None
         """
-        super(PermitRecGov, self).navigate_location_link(self._location, "/permits/",
+        super(PermitRecGov, self).navigate_location_link(self._location.split(":")[0], "/permits/",
                                                          "/registration/detailed-availability")
 
     def _permit_type(self):
@@ -142,7 +162,7 @@ class PermitRecGov(RecGov):
 
             if "yes" in commercial_trip_type:
                 sleep(self._wait_duration)
-                raise CommercialTripException(self._location + ": You have selected a commercial trip")
+                raise CommercialTripException(RecGov.format_location_string(self._location) + ": You have selected a commercial trip")
 
     def _add_group_member(self, path):
         """
@@ -165,6 +185,7 @@ class PermitRecGov(RecGov):
         """
         if self._permit_details['dates'] is not None:
             super(PermitRecGov, self).select_date(self._permit_details['dates'][0], "SingleDatePicker1")
+            self._driver.find_element_by_id("SingleDatePicker1").send_keys(Keys.TAB)
             return
 
         # No dates provided, use the next available
@@ -201,7 +222,25 @@ class PermitRecGov(RecGov):
             raise e
 
         except Exception as e:
-            print(self._location + ": PermitRecGov._scheduling_details() failed")
+            print(RecGov.format_location_string(self._location) + ": PermitRecGov._scheduling_details() failed")
+            print(print_exc())
+            raise e
+
+    def _refresh_availability_table(self):
+        """
+        _refresh_availability_table - refresh the availability grid on the permits page
+        :return: None
+        """
+        try:
+            pass
+            """
+            refresh_button = self._driver.find_element_by_xpath("//span[contains(text(), 'Refresh Table')]")
+            refresh_button = RecGov.find_parent_with_tag(refresh_button, "button")
+            refresh_button.click()
+            """
+
+        except Exception as e:
+            print(RecGov.format_location_string(self._location) + ": PermitRecGov._refresh_availability_table() failed")
             print(print_exc())
             raise e
 
@@ -213,81 +252,96 @@ class PermitRecGov(RecGov):
         :return: True if successfully in checkout, else False
         """
         try:
-            output_str = "#" + str(iteration) + ": " + self._location + ": Able to book: " + entry_point[0] + \
-                         ", " + entry_point[1] + " for: " + book_date + ", you must log in to proceed"
+            output_str = "#" + str(iteration) + ": " + RecGov.format_location_string(self._location) + \
+                         ": Able to book: " + entry_point + " for: " + book_date + ", you must log in to proceed"
             
             if super(PermitRecGov, self).book_now("//span[contains(text(), 'Book Now')]"):
-                return super(PermitRecGov, self).finish_book_now(output_str, self._location)
+                return super(PermitRecGov, self).finish_book_now(output_str, RecGov.format_location_string(self._location))
 
         except Exception as e:
-            print(self._location + ": PermitRecGov._book_now() failed")
+            print(RecGov.format_location_string(self._location) + ": PermitRecGov._book_now() failed")
             print(print_exc())
+            raise e
 
         # Any issues, etc. continue polling the availability page
         return False
 
-    def _select_permit(self, iteration=1):
+    def _clear_selection(self):
         """
-        _select_permit - parses the availabilities page to find the first desired permit and selects it
-        :return: True if successfully reached the checkout screen, False otherwise
+        _clear_selection - clears the selection on the table
+        :return: None
         """
+        clear_selection_elements = self._driver.find_elements_by_xpath("//span[contains(text(), 'Clear Dates')]")
+        if len(clear_selection_elements) > 0:
+            clear_selection = RecGov.find_parent_with_tag(clear_selection_elements[0], "button")
+            clear_selection.click()
+
+    def _handle_availability(self, entry_point, iteration):
         try:
-            scroll_element_to_middle = "var viewPortHeight = Math.max(document.documentElement.clientHeight, " + \
-                                       "window.innerHeight || 0);" + "var elementTop = arguments[0]." + \
-                                       "getBoundingClientRect().top; window.scrollBy(0, " + \
-                                       "elementTop-(viewPortHeight/2));";
-
-            # Set the correct table class name based on page
-            table_string = "per-availability-table-container"
-            if "whitney" in self._location.lower():
-                table_string = "per-availability-content"
-
+            self._clear_selection()
+    
             # Grab the container for the page
-            container = self._driver.find_element_by_class_name(table_string)
-            grid_rows = container.find_elements_by_xpath(
-                ".//div[(@data-component='Row') and (@role='row') and (@class='rec-grid-row')]")
+            grid_cell_available = self._driver.find_elements_by_class_name('rec-grid-grid-cell.available')
 
-            # Iterate over the grid rows to find the correct and available entry points
-            for row in range(2, len(grid_rows)):
-                cell_elements = grid_rows[row].find_elements_by_xpath(
-                    ".//div[(@data-component='GridCell') and (@role='gridcell')]")
-                # Skip empty rows
-                if len(cell_elements) < 3:
-                    continue
-                entry_point_info = [cell_elements[0].text.strip(), cell_elements[1].text.strip(),
-                                    cell_elements[2].text.strip()]
-                # Find where the first available day is for this entry point
-                first_available_index = -1
-                for cell_index in range(3, len(cell_elements)):
-                    if int(sub("[^0-9]", "", cell_elements[cell_index].text) if
-                           cell_elements[cell_index].text.strip() != "" else 0) >= self._guests:
-                        first_available_index = cell_index
-                        break
-                # Check if this entry point is in our list and if it is actually available
-                if (self._desired_entries is not None and (entry_point_info[0] not in self._desired_entries) and
-                        (entry_point_info[1] not in self._desired_entries)) or first_available_index == -1:
-                    continue
-
-                available_date_button = cell_elements[first_available_index].find_elements_by_tag_name("button")
+            for index in range(0, len(grid_cell_available)):
+                available_date_button = grid_cell_available[0].find_elements_by_tag_name("button")
                 if len(available_date_button) == 0:
-                    continue
+                    return 0
 
-                # Click the first available date button that is on our desired date
-                WebDriverWait(self._driver, self._long_delay).until(ec.visibility_of_all_elements_located(
-                    (By.CLASS_NAME, "sarsa-button.rec-availability-date.sarsa-button-primary.sarsa-button-md")))
+                available_date_button = available_date_button[0]
+                day_date = 0
+                permits_available = 0
 
-                self._driver.execute_script(scroll_element_to_middle, available_date_button[0])
-                ActionChains(self._driver).click(available_date_button[0]).perform()
+                if "whitney" in self._location.split(":")[0].lower():
+                    permits_available = int(sub("[^0-9]", "", str(available_date_button.text)))
+                    day_date = self._permit_details['dates'][0].day
+                    row_text = RecGov.find_parent_with_attribute_value(available_date_button, "class", "rec-grid-row").text
+
+                    if entry_point not in row_text:
+                        return 0
+                else:
+                    day_date, permits_available = available_date_button.get_attribute("aria-label").split("\n")
+
+                    day_date = int(sub("[^0-9]", "", str(day_date)))
+                    permits_available = int(sub("[^0-9]", "", str(permits_available.split("out of")[0])))
 
                 book_date = self._permit_details['dates'][0]
-                book_date += timedelta(days=(first_available_index - 3))
+
+                if permits_available < self._guests or book_date.day != day_date:
+                    return 0
+
+                ActionChains(self._driver).move_to_element(available_date_button).click(
+                    available_date_button).perform()
+
                 book_date_str = DateHandler.datetime_to_normal_text(book_date)
 
                 # When this becomes True, we are at the checkout screen
                 # Signal to the polling function to exit, but keep the browser open
-                return self._book_now(entry_point_info, book_date_str, iteration)
+                return 1 if self._book_now(entry_point, book_date_str, iteration) else 0
 
         except Exception as e:
-            print(self._location + ": PermitRecGov._select_permit() failed")
+            print(RecGov.format_location_string(self._location) + ": CampRecGov._handle_availability() failed")
+            print(print_exc())
+            return 0
+
+    def _select_permit(self):
+        """
+        _select_permit - inputs the entry point info
+        :return: None
+        """
+        try:
+            filter_button = self._driver.find_element_by_xpath("//span[contains(text(), 'Filters')]")
+            filter_button = RecGov.find_parent_with_tag(filter_button, "button")
+            filter_button.click()
+
+            entry_point_input = self._driver.find_element_by_id("division-search-input")
+            entry_point_input.send_keys(self._location.split(":")[1])
+            entry_point_input.send_keys(Keys.RETURN)
+            sleep(self._wait_duration)
+
+            return self._location.split(":")[1]
+
+        except Exception as e:
+            print(RecGov.format_location_string(self._location) + ": PermitRecGov._select_permit() failed")
             print(print_exc())
             raise e

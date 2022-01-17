@@ -8,7 +8,7 @@ Created on Fri Aug  6 14:56:52 2021
 from traceback import print_exc
 from time import sleep
 from re import sub
-from datetime import date
+from datetime import date, datetime
 from datetime import timedelta
 from selenium import webdriver
 from selenium.webdriver.support.ui import WebDriverWait
@@ -39,6 +39,8 @@ class RecGov:
         self._url = preferences.url
         self._guests = preferences.guests
         self._num_refreshes = preferences.num_refreshes
+        self._time_start = preferences.time_start
+        self._time_end = preferences.time_end
 
     @staticmethod
     def find_parent_with_attribute_value(element, target, value):
@@ -96,43 +98,6 @@ class RecGov:
 
         return location_str
 
-    def execute(self):
-        """
-        execute - starts the execution of the browser
-        :return: bool: True if successfully in checkout, False otherwise
-        """
-        try:
-            self.navigate_site()
-            self._log_into_account()
-            self._navigate_main_page()
-            self._get_permit_link()
-            self._poll()
-            # unreachable unless successfully booking
-            # detaches browser on successful selection of permits
-            return True
-        except Exception as e:
-            pass
-
-        return False
-
-    def _poll(self):
-        """
-        _poll - polls the availability page
-        :return: None
-        """
-        retries = 0
-        while retries < self._num_refreshes:
-            # for each refresh:
-            # - refresh the webpage, reschedule permit details and restart checking for availabilities
-            self._driver.refresh()
-            self._scheduling_details()
-            if self._parse_availabilities(retries + 1):
-                return True
-            retries += 1
-
-        # Unable to successfully book permits
-        raise EndOfTriesException(format_location_string() + ": finished executing")
-
     def navigate_site(self):
         """
         navigate_site - opens the desired url in the driver
@@ -141,7 +106,7 @@ class RecGov:
         try:
             self._driver.get(self._url)
         except Exception as e:
-            print(format_location_string() + ": RecGov.navigate_site() failed: " + self._url)
+            print(RecGov.format_location_string(self._location) + ": RecGov.navigate_site() failed: " + self._url)
             print(print_exc())
             raise e
 
@@ -175,7 +140,7 @@ class RecGov:
             sleep(self._wait_duration)
 
         except Exception as e:
-            print(format_location_string() + ": RecGov.log_into_account() failed")
+            print(RecGov.format_location_string(self._location) + ": RecGov.log_into_account() failed")
             print(print_exc())
             raise e
 
@@ -198,7 +163,7 @@ class RecGov:
             heading_element.click()
 
         except Exception as e:
-            print(format_location_string() + ": RecGov.navigate_main_page() failed")
+            print(RecGov.format_location_string(self._location) + ": RecGov.navigate_main_page() failed")
             print(print_exc())
             raise e
 
@@ -215,9 +180,26 @@ class RecGov:
             self._driver.get(current_link)
 
         except Exception as e:
-            print(format_location_string() + ": RecGov.navigate_location_link() failed")
+            print(RecGov.format_location_string(self._location) + ": RecGov.navigate_location_link() failed")
             print(print_exc())
             raise e
+
+    def wait(self):
+        """
+        wait - pre-poll wait
+        :return: None
+        """
+
+        if self._time_start is not None:
+            current_time = datetime.now().time()
+            print("Current time is " + str(current_time.strftime("%H:%M:%S")) +
+                  ", Waiting until " + str(self._time_start) + " to begin polling the page")
+
+            while current_time < self._time_start:
+                sleep(1)
+                current_time = datetime.now().time()
+
+            print("Begin processing at " + str(self._time_start.strftime("%H:%M:%S")))
 
     def next_available(self):
         """
@@ -244,7 +226,12 @@ class RecGov:
         # The calendar is finicky: select previous date and overwrite, shift focus elsewhere to force a page update
         date_input.send_keys(Keys.CONTROL + "a")
         date_input.send_keys(date_str)
-        date_input.send_keys(Keys.TAB)
+
+        if "start-date" in calendar_element:
+            date_input.send_keys(Keys.TAB)
+        elif "end-date" in calendar_element:
+            while date_input.get_attribute("value").strip() == "":
+                date_input.send_keys(date_str)
 
     def book_now(self, book_now_xpath):
         """
