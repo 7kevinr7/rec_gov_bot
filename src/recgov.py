@@ -194,12 +194,13 @@ class RecGov:
             current_time = datetime.now().time()
             print("Current time is " + str(current_time.strftime("%H:%M:%S")) +
                   ", Waiting until " + str(self._time_start) + " to begin polling the page")
-
-            while current_time < self._time_start:
-                sleep(1)
+            if self._time_start > current_time:
                 current_time = datetime.now().time()
+                curr_seconds = (current_time.hour * 60 + current_time.minute) * 60 + current_time.second
+                start_seconds = (self._time_start.hour * 60 + self._time_start.minute) * 60 + self._time_start.second
 
-            print("Begin processing at " + str(self._time_start.strftime("%H:%M:%S")))
+                sleep(start_seconds - curr_seconds)
+            print("Began processing at " + str(self._time_start.strftime("%H:%M:%S")))
 
     def next_available(self):
         """
