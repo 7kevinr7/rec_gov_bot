@@ -41,7 +41,7 @@ class Overseer:
         try:
             print(RecGov.format_location_string(merged_location_type[0]) + ": driver starting")
             # windows default
-            exec_path = path.join(getcwd(), 'chromedriver_windows')
+            exec_path = path.join(getcwd(), 'chromedriver.exe')
             if platform == "linux":
                 exec_path = path.join(getcwd(), 'chromedriver_linux')
             driver = webdriver.Chrome(executable_path=exec_path,
