@@ -52,8 +52,6 @@ class PermitRecGov(RecGov):
             super(PermitRecGov, self).log_into_account()
             self._navigate_permit_heading()
             self._load_permit_link()
-            self._driver.refresh()
-            self._scheduling_details()
             self._poll()
             # unreachable unless successfully booking
             # detaches browser on successful selection of permits
@@ -74,6 +72,8 @@ class PermitRecGov(RecGov):
         """
         retries = 0
 
+        self._driver.refresh()
+        self._scheduling_details()
         entry_point = self._select_permit()
         super(PermitRecGov, self).wait()
         result = 0
@@ -87,6 +87,10 @@ class PermitRecGov(RecGov):
                     return True
                 retries += 1
                 current_time = datetime.now().time()
+
+                self._driver.refresh()
+                self._scheduling_details()
+                entry_point = self._select_permit()
         else:
             while retries < self._num_refreshes:
                 self._refresh_availability_table()
@@ -94,6 +98,10 @@ class PermitRecGov(RecGov):
                 if result == 1:
                     return True
                 retries += 1
+
+                self._driver.refresh()
+                self._scheduling_details()
+                entry_point = self._select_permit()
 
         except_str = RecGov.format_location_string(self._location) + ": driver stopping, tried " + \
                      str(retries) + " times"

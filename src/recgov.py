@@ -199,7 +199,7 @@ class RecGov:
                 curr_seconds = (current_time.hour * 60 + current_time.minute) * 60 + current_time.second
                 start_seconds = (self._time_start.hour * 60 + self._time_start.minute) * 60 + self._time_start.second
 
-                sleep(start_seconds - curr_seconds)
+                sleep(start_seconds - curr_seconds - 3)
             print("Began processing at " + str(self._time_start.strftime("%H:%M:%S")))
 
     def next_available(self):
