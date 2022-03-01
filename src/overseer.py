@@ -10,6 +10,7 @@ from traceback import print_exc
 from selenium import webdriver
 from os import path
 from os import getcwd
+from sys import platform
 
 from src.recgov import RecGov
 from src.camp_recgov import CampRecGov
@@ -39,7 +40,10 @@ class Overseer:
         driver = None
         try:
             print(RecGov.format_location_string(merged_location_type[0]) + ": driver starting")
-            exec_path = path.join(getcwd(), 'chromedriver')
+            # windows default
+            exec_path = path.join(getcwd(), 'chromedriver_windows')
+            if platform == "linux":
+                exec_path = path.join(getcwd(), 'chromedriver_linux')
             driver = webdriver.Chrome(executable_path=exec_path,
                                       chrome_options=webdriver.ChromeOptions())
             driver.maximize_window()
