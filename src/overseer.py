@@ -1,8 +1,5 @@
-# -*- coding: utf-8 -*-
 """
-Created on Fri Aug  6 14:56:52 2021
-
-@author: krose
+This module provides the overseer functionality
 """
 
 import multiprocessing as mp
@@ -19,6 +16,7 @@ import src.preferences_handler as ph
 
 
 class Overseer:
+    """ This class provides the Overseer which is the driver for the bot. """
 
     def __init__(self, prefs='preferences/preferences.txt'):
         """
@@ -39,7 +37,8 @@ class Overseer:
         """
         driver = None
         try:
-            print(RecGov.format_location_string(merged_location_type[0]) + ": driver starting")
+            print(RecGov.format_location_string(merged_location_type[0])
+                  + ": driver starting")
             # windows default
             exec_path = path.join(getcwd(), 'chromedriver.exe')
             if platform == "linux":
@@ -51,7 +50,8 @@ class Overseer:
 
         except Exception as e:
             print(print_exc())
-            print(RecGov.format_location_string(merged_location_type[0]) + ": Unable to create driver for location: ")
+            print(RecGov.format_location_string(merged_location_type[0])
+                  + ": Unable to create driver for location: ")
             driver = None
 
         if driver is not None:

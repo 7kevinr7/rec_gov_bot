@@ -1,4 +1,6 @@
-
+"""
+This module contains the main entry point
+"""
 
 import src.overseer as overwatch
 

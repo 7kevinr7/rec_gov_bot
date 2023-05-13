@@ -1,14 +1,13 @@
-# -*- coding: utf-8 -*-
 """
-Created on Fri Aug  6 14:56:52 2021
-
-@author: krose
+This module provides a date handler. Again, json would make this
+class useless.
 """
 
 from datetime import date
 
 
 class DateHandler:
+    """ This class provides the parsing for dates. """
 
     def __init__(self, date_input=None):
         """

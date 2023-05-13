@@ -1,8 +1,6 @@
-# -*- coding: utf-8 -*-
 """
-Created on Fri Aug  6 14:56:52 2021
-
-@author: krose
+This module provides a location handler. Again, json would make this
+class useless.
 """
 
 from os import path
@@ -23,6 +21,7 @@ class NoDateSetException(Exception):
 
 
 class LocationHandler:
+    """ This class provides the parsing for locations. """
 
     def __init__(self, locations='preferences/locations.txt', locations_type=None):
         """
@@ -35,7 +34,8 @@ class LocationHandler:
 
         locations_path = path.join(getcwd(), locations)
         if not path.exists(locations_path):
-            raise NoLocationsFileException("Locations File does not exist @: " + locations_path)
+            raise NoLocationsFileException("Locations File does not exist @: "
+                                           + locations_path)
 
         location_data = list()
         details_data = list()

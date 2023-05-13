@@ -1,8 +1,5 @@
-# -*- coding: utf-8 -*-
 """
-Created on Fri Aug  6 14:56:52 2021
-
-@author: krose
+This module provides the flow for permit reservations
 """
 
 from traceback import print_exc
@@ -31,6 +28,7 @@ class CommercialTripException(Exception):
 
 
 class PermitRecGov(RecGov):
+    """ This class provides the functionality for permit reservations. """
 
     def __init__(self, driver, preferences, permit_location):
         """
@@ -78,6 +76,8 @@ class PermitRecGov(RecGov):
         super(PermitRecGov, self).wait()
         result = 0
 
+        # if an end time is specified, execute until that time
+        # otherwise, execute for a set number of times
         if self._time_end:
             current_time = datetime.now().time()
             while current_time < self._time_end:
@@ -285,6 +285,12 @@ class PermitRecGov(RecGov):
             clear_selection.click()
 
     def _handle_availability(self, entry_point, iteration):
+        """
+        _handle_availability - searches and selects the open availability
+        :param entry_point: the entry point selected
+        :param iteration: the iteration count the bot is on
+        :return: None
+        """
         try:
             self._clear_selection()
     

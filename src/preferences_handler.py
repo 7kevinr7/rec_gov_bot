@@ -1,8 +1,6 @@
-# -*- coding: utf-8 -*-
 """
-Created on Fri Aug  6 14:56:52 2021
-
-@author: krose
+This module provides a preferences handler. Again, json would make this
+class useless.
 """
 
 from os import path
@@ -19,6 +17,7 @@ class NoTimeOrRefreshCountProvidedException(Exception):
 
 
 class PreferencesHandler:
+    """ This class provides the parsing for preferences. """
 
     def __init__(self, prefs='preferences/preferences.txt'):
         """
@@ -75,7 +74,8 @@ class PreferencesHandler:
         self.wait_duration = int(preferences['wait_duration']) if 'wait_duration' in preferences else 1
         self.long_delay = int(preferences['long_delay']) if 'long_delay' in preferences else 5
         self.guests = int(preferences['guests']) if 'guests' in preferences else 2
-        self.login = bool(preferences['login']) if 'login' in preferences and "True" in preferences['login'] else False
+        self.login = \
+            bool(preferences['login']) if 'login' in preferences and "True" in preferences['login'] else False
 
         self.url = preferences['url'] if 'url' in preferences else "https://www.recreation.gov/"
 

@@ -1,8 +1,5 @@
-# -*- coding: utf-8 -*-
 """
-Created on Fri Aug  6 14:56:52 2021
-
-@author: krose
+This module provides the flow for campsite reservations.
 """
 
 from traceback import print_exc
@@ -26,6 +23,7 @@ class EndOfTriesException(Exception):
 
 
 class CampRecGov(RecGov):
+    """ This class provides the functionality for campsite reservations. """
 
     def __init__(self, driver, preferences, camping_location):
         """
@@ -76,8 +74,11 @@ class CampRecGov(RecGov):
             while current_time < self._time_end:
                 self._refresh_availability_table()
                 if result == 2:
-                    start_datetime, end_datetime, start_date, end_date, campsite = self._select_campsite()
-                result = self._handle_availability(start_datetime, end_datetime, start_date, end_date, campsite, retries + 1)
+                    start_datetime, end_datetime, start_date, end_date, campsite = \
+                        self._select_campsite()
+                result = self._handle_availability(start_datetime, end_datetime,
+                                                   start_date, end_date, campsite,
+                                                   retries + 1)
                 if result == 1:
                     return True
                 retries += 1
@@ -86,13 +87,17 @@ class CampRecGov(RecGov):
             while retries < self._num_refreshes:
                 self._refresh_availability_table()
                 if result == 2:
-                    start_datetime, end_datetime, start_date, end_date, campsite = self._select_campsite()
-                result = self._handle_availability(start_datetime, end_datetime, start_date, end_date, campsite, retries + 1)
+                    start_datetime, end_datetime, start_date, end_date, campsite = \
+                        self._select_campsite()
+                result = self._handle_availability(start_datetime, end_datetime,
+                                                   start_date, end_date, campsite,
+                                                   retries + 1)
                 if result == 1:
                     return True
                 retries += 1
 
-        except_str = RecGov.format_location_string(self._location) + ": driver stopping, tried " + \
+        except_str = RecGov.format_location_string(self._location) \
+                     + ": driver stopping, tried " + \
                      str(retries) + " times"
         if self._time_end:
             except_str += ", reached timeout " + str(self._time_end)
@@ -113,13 +118,19 @@ class CampRecGov(RecGov):
         :return: None
         """
         try:
-            search_bar = self._driver.find_element_by_xpath("//input[contains(@placeholder, 'Where to')]")
+            search_bar = self._driver.find_element_by_xpath(
+                "//input[contains(@placeholder, 'Where to')]"
+            )
             search_bar.send_keys(self._location.split(":")[1])
             search_bar.send_keys(Keys.RETURN)
-            super(CampRecGov, self).navigate_location_link(self._location.split(":")[1], "/camping/campgrounds/")
+            super(CampRecGov, self).navigate_location_link(
+                self._location.split(":")[1],
+                "/camping/campgrounds/"
+            )
 
         except Exception as e:
-            print(RecGov.format_location_string(self._location) + ": CampRecGov._load_camping_link() failed")
+            print(RecGov.format_location_string(self._location)
+                  + ": CampRecGov._load_camping_link() failed")
             print(print_exc())
             raise e
 
@@ -143,7 +154,8 @@ class CampRecGov(RecGov):
             sleep(self._wait_duration)
 
         except Exception as e:
-            print(RecGov.format_location_string(self._location) + ": CampRecGov._handle_campground_page() failed")
+            print(RecGov.format_location_string(self._location)
+                  + ": CampRecGov._handle_campground_page() failed")
             print(print_exc())
             raise e
 
@@ -200,8 +212,14 @@ class CampRecGov(RecGov):
         """
 
         if self._camping_details['dates'] is not None:
-            super(CampRecGov, self).select_date(self._camping_details['dates'][0], "campground-start-date-calendar")
-            super(CampRecGov, self).select_date(self._camping_details['dates'][1], "campground-end-date-calendar")
+            super(CampRecGov, self).select_date(
+                self._camping_details['dates'][0],
+                "campground-start-date-calendar"
+            )
+            super(CampRecGov, self).select_date(
+                self._camping_details['dates'][1],
+                "campground-end-date-calendar"
+            )
 
     def _scheduling_details(self):
         """
@@ -216,7 +234,8 @@ class CampRecGov(RecGov):
             self._select_dates()
 
         except Exception as e:
-            print(RecGov.format_location_string(self._location) + ": CampRecGov._scheduling_details() failed")
+            print(RecGov.format_location_string(self._location)
+                  + ": CampRecGov._scheduling_details() failed")
             print(print_exc())
             raise e
 
@@ -226,12 +245,15 @@ class CampRecGov(RecGov):
         :return: None
         """
         try:
-            refresh_button = self._driver.find_element_by_xpath("//span[contains(text(), 'Refresh Table')]")
+            refresh_button = self._driver.find_element_by_xpath(
+                "//span[contains(text(), 'Refresh Table')]"
+            )
             refresh_button = RecGov.find_parent_with_tag(refresh_button, "button")
             refresh_button.click()
 
         except Exception as e:
-            print(RecGov.format_location_string(self._location) + ": CampRecGov._refresh_availability_table() failed")
+            print(RecGov.format_location_string(self._location)
+                  + ": CampRecGov._refresh_availability_table() failed")
             print(print_exc())
             raise e
 
@@ -244,16 +266,19 @@ class CampRecGov(RecGov):
         :return: True if successfully in checkout, else False
         """
         try:
-            output_str = "#" + str(iteration) + ": " + RecGov.format_location_string(self._location) + \
-                         ": Able to book: Site #" + str(campsite).zfill(3) + " for: " + book_dates + \
-                         ", you must log in to proceed"
+            output_str = "#" + str(iteration) + ": " \
+                         + RecGov.format_location_string(self._location) \
+                         + ": Able to book: Site #" + str(campsite).zfill(3) \
+                         + " for: " + book_dates \
+                         + ", you must log in to proceed"
 
             if super(CampRecGov, self).book_now("//span[contains(text(), 'Add to Cart')]"):
                 return super(CampRecGov, self).finish_book_now(output_str,
                                                                RecGov.format_location_string(self._location))
 
         except Exception as e:
-            print(RecGov.format_location_string(self._location) + ": CampRecGov._book_now() failed")
+            print(RecGov.format_location_string(self._location)
+                  + ": CampRecGov._book_now() failed")
             print(print_exc())
             raise e
 
@@ -265,7 +290,8 @@ class CampRecGov(RecGov):
         _clear_selection - clears the selection on the table
         :return: None
         """
-        clear_selection_elements = self._driver.find_elements_by_xpath("//span[contains(text(), 'Clear selection')]")
+        clear_selection_elements = self._driver.find_elements_by_xpath("//span[contains(text(), "
+                                                                       "'Clear selection')]")
         if len(clear_selection_elements) > 0:
             clear_selection = RecGov.find_parent_with_tag(clear_selection_elements[0], "button")
             clear_selection.click()

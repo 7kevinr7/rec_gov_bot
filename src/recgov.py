@@ -1,8 +1,6 @@
-# -*- coding: utf-8 -*-
 """
-Created on Fri Aug  6 14:56:52 2021
-
-@author: krose
+This module provides the RecGov class which is the parent of the camp
+and permit classes.
 """
 
 from traceback import print_exc
@@ -22,6 +20,7 @@ class EndOfTriesException(Exception):
 
 
 class RecGov:
+    """ This class provides the shared functionality for campsite and permit reservations. """
 
     def __init__(self, driver, preferences, location):
         """
@@ -52,7 +51,8 @@ class RecGov:
         :return: WebElement: the parent WebElement of the provided child, None if the element is not found
         """
         try:
-            while element.get_attribute(target) is None or element.get_attribute(target).strip() != value:
+            while element.get_attribute(target) is None \
+                    or element.get_attribute(target).strip() != value:
                 element = element.find_element_by_xpath("..")
             return element
 
@@ -106,7 +106,9 @@ class RecGov:
         try:
             self._driver.get(self._url)
         except Exception as e:
-            print(RecGov.format_location_string(self._location) + ": RecGov.navigate_site() failed: " + self._url)
+            print(RecGov.format_location_string(self._location)
+                  + ": RecGov.navigate_site() failed: "
+                  + self._url)
             print(print_exc())
             raise e
 
@@ -174,8 +176,10 @@ class RecGov:
         """
         try:
             # Search the page to find the link for this location
-            location_element = self._driver.find_element_by_xpath("//a[contains(@href, '" + primary_link_text + "') "
-                                                                  "and contains(@title, '" + location + "')]")
+            location_element = self._driver.find_element_by_xpath("//a[contains(@href, '"
+                                                                  + primary_link_text
+                                                                  + "') and contains(@title, '"
+                                                                  + location + "')]")
             current_link = location_element.get_attribute("href") + secondary_link_text
             self._driver.get(current_link)
 
@@ -197,7 +201,8 @@ class RecGov:
             if self._time_start > current_time:
                 current_time = datetime.now().time()
                 curr_seconds = (current_time.hour * 60 + current_time.minute) * 60 + current_time.second
-                start_seconds = (self._time_start.hour * 60 + self._time_start.minute) * 60 + self._time_start.second
+                start_seconds = \
+                    (self._time_start.hour * 60 + self._time_start.minute) * 60 + self._time_start.second
 
                 sleep(start_seconds - curr_seconds - 3)
             print("Began processing at " + str(self._time_start.strftime("%H:%M:%S")))
@@ -224,7 +229,8 @@ class RecGov:
                              desired_date.strftime("%Y")])
 
         date_input = self._driver.find_element_by_id(calendar_element)
-        # The calendar is finicky: select previous date and overwrite, shift focus elsewhere to force a page update
+        # The calendar is finicky: select previous date and overwrite,
+        # shift focus elsewhere to force a page update
         date_input.send_keys(Keys.CONTROL + "a")
         date_input.send_keys(date_str)
 
@@ -258,10 +264,12 @@ class RecGov:
         :param location_str:
         :return:
         """
-        # Site will prompt a login, since we aren't logged in, this will kick the bot back to the availability
+        # Site will prompt a login, since we aren't logged in,
+        # this will kick the bot back to the availability
         # screen to continue looking
         if not self._login:
-            close_book_now = self._driver.find_elements_by_xpath("//span[contains(text(), 'Close Log In')]")
+            close_book_now = self._driver.find_elements_by_xpath("//span[contains(text(), "
+                                                                 "'Close Log In')]")
             if len(close_book_now) == 0:
                 return False
 
